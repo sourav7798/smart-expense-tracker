@@ -8,6 +8,7 @@ import plotly.express as px
 import streamlit as st
 
 import database as db
+from ui import apply_style, hero, sidebar_brand, chart_style, empty_state, CATEGORY_COLORS
 from data_processing import (CATEGORIES, FIELDS, dashboard_metrics, duplicate_flags,
                              export_csv, filter_expenses, read_csv_preview, validate_expense)
 from generate_sample_data import generate_transactions
@@ -43,35 +44,66 @@ def money(value):
 
 
 def dashboard(frame, today, mode):
-    st.subheader('Spending dashboard')
+    st.subheader('Your spending at a glance')
+    st.caption('A little visibility goes a long way. Explore where your money goes.')
     start_default = frame['date'].min().date() if not frame.empty else today.replace(day=1)
-    left, right = st.columns(2)
-    start = left.date_input('From', start_default, max_value=today, key=f'from_{mode}')
-    end = right.date_input('To', today, max_value=today, key=f'to_{mode}')
-    categories = st.multiselect('Categories', CATEGORIES, default=CATEGORIES, key=f'categories_{mode}')
-    search = st.text_input('Search descriptions', key=f'search_{mode}')
+    with st.expander('Filter by date & category', expanded=False):
+        left, right = st.columns(2)
+        start = left.date_input('From', start_default, max_value=today, key=f'from_{mode}')
+        end = right.date_input('To', today, max_value=today, key=f'to_{mode}')
+        categories = st.multiselect('Categories', CATEGORIES, default=CATEGORIES, key=f'categories_{mode}')
+    search = st.text_input('Search descriptions', key=f'search_{mode}', placeholder='Search coffee, groceries, metro…')
     if start > end:
         st.warning('From date must be on or before To date.')
         return
     filtered = filter_expenses(frame, start, end, categories, search)
+    st.caption(f"{start:%d %b %Y} – {end:%d %b %Y}  ·  {len(categories)} categories  ·  {len(filtered):,} transactions")
     metrics = dashboard_metrics(filtered, start, end, today)
     columns = st.columns(4)
     for col, label, value in zip(columns, ['Total spending', 'Current month', 'Average per day', 'Top category'],
                                   [money(metrics['total']), money(metrics['current_month']), money(metrics['daily_average']), metrics['top_category']]):
         col.metric(label, value)
-    st.caption('All dashboard metrics and exports respect these filters. Daily average includes every calendar day in the selected range, including zero-spend days.')
+    st.caption('Metrics respect all filters. Daily average includes every day in the selected range, including zero-spend days.')
     if filtered.empty:
-        st.info('No matching transactions. Add expenses, import a CSV, or load synthetic demo data.')
+        empty_state()
     else:
-        monthly = filtered.assign(month=filtered['date'].dt.to_period('M').astype(str)).groupby('month', as_index=False)['amount'].sum()
+        monthly = filtered.assign(month=filtered['date'].dt.to_period('M').dt.to_timestamp()).groupby('month', as_index=False)['amount'].sum()
         daily = filtered.groupby('date')['amount'].sum().reindex(pd.date_range(start, end), fill_value=0).rename_axis('date').reset_index()
-        category = filtered.groupby('category', as_index=False)['amount'].sum()
-        a, b = st.columns(2)
-        a.plotly_chart(px.bar(monthly, x='month', y='amount', title='Monthly spending (INR)'), use_container_width=True)
-        b.plotly_chart(px.pie(category, names='category', values='amount', hole=.5, title='Category distribution'), use_container_width=True)
-        st.plotly_chart(px.line(daily, x='date', y='amount', title='Daily spending (INR)'), use_container_width=True)
-    st.dataframe(filtered[['id'] + FIELDS + ['category_source']], hide_index=True, use_container_width=True)
-    st.download_button('Export filtered CSV', export_csv(filtered), 'filtered_expenses.csv', 'text/csv')
+        category = filtered.groupby('category', as_index=False)['amount'].sum().sort_values('amount', ascending=False)
+        a, b = st.columns([1.6, 1])
+        with a.container(border=True):
+            st.subheader('Spending over time')
+            st.caption('Monthly totals · INR')
+            chart = px.bar(monthly, x='month', y='amount', color_discrete_sequence=['#087F73'])
+            chart.update_traces(marker_cornerradius=5, hovertemplate='%{x|%b %Y}<br>₹%{y:,.2f}<extra></extra>')
+            chart.update_xaxes(dtick='M3' if len(monthly) > 18 else 'M1', tickformat='%b %y')
+            st.plotly_chart(chart_style(chart), use_container_width=True, config={'displayModeBar': False})
+        with b.container(border=True):
+            st.subheader('Where it goes')
+            st.caption('Category share · INR')
+            chart = px.pie(category, names='category', values='amount', hole=.72,
+                           color='category', color_discrete_map=CATEGORY_COLORS)
+            chart.update_traces(textinfo='none', marker=dict(line=dict(color='#F5F7FA', width=3)),
+                                hovertemplate='%{label}<br>₹%{value:,.2f} · %{percent}<extra></extra>')
+            chart.update_layout(legend=dict(orientation='h', y=-.12, x=.5, xanchor='center', font_size=11),
+                                annotations=[dict(text='SPENDING', x=.5, y=.5, showarrow=False, font=dict(size=12,color='#63778A'))])
+            st.plotly_chart(chart_style(chart), use_container_width=True, config={'displayModeBar': False})
+        with st.container(border=True):
+            st.subheader('Daily rhythm')
+            st.caption('See the peaks and quieter days in your spending.')
+            chart = px.area(daily, x='date', y='amount', color_discrete_sequence=['#6F73D2'])
+            chart.update_traces(line_width=2, fillcolor='rgba(111,115,210,0.12)',
+                                hovertemplate='%{x|%d %b %Y}<br>₹%{y:,.2f}<extra></extra>')
+            st.plotly_chart(chart_style(chart, 240), use_container_width=True, config={'displayModeBar': False})
+    st.subheader('Transaction history')
+    st.caption('Every entry, in one place. Edit or remove a record in Manage expenses.')
+    st.dataframe(filtered[['id'] + FIELDS + ['category_source']], hide_index=True, use_container_width=True,
+                 column_config={'id': st.column_config.NumberColumn('ID', format='%d'),
+                                'date': st.column_config.DateColumn('Date', format='DD MMM YYYY'),
+                                'description': st.column_config.TextColumn('Description', width='large'),
+                                'amount': st.column_config.NumberColumn('Amount (₹)', format='₹ %.2f'),
+                                'category': 'Category', 'category_source': 'Categorized by'})
+    st.download_button('Export filtered CSV', export_csv(filtered), 'filtered_expenses.csv', 'text/csv', icon=':material/download:')
 
 
 def manage(frame, path, trained, today):
@@ -80,10 +112,11 @@ def manage(frame, path, trained, today):
     predicted, source = categorize(description, trained)
     st.caption(f'Suggested category: {predicted} · source: {source}. Choose a manual category to override.')
     with st.form('add_expense', clear_on_submit=True):
-        day = st.date_input('Expense date', today, max_value=today)
-        amount = st.number_input('Amount (INR)', min_value=0.0, max_value=1_000_000_000.0, step=10.0, format='%.2f')
+        date_col, amount_col = st.columns(2)
+        day = date_col.date_input('Expense date', today, max_value=today)
+        amount = amount_col.number_input('Amount (INR)', min_value=0.0, max_value=1_000_000_000.0, step=10.0, format='%.2f')
         choice = st.selectbox('Category', ['Use suggestion'] + CATEGORIES)
-        submitted = st.form_submit_button('Save expense')
+        submitted = st.form_submit_button('Save expense', type='primary', use_container_width=True)
     if submitted:
         try:
             category = predicted if choice == 'Use suggestion' else choice
@@ -106,7 +139,7 @@ def manage(frame, path, trained, today):
         edited_amount = st.number_input('Edit amount (INR)', value=float(row['amount']), min_value=0.0, max_value=1_000_000_000.0, format='%.2f')
         edited_category = st.selectbox('Edit category', CATEGORIES, index=CATEGORIES.index(row['category']))
         st.caption(f"Current category source: {row['category_source']}. Saving an edit marks the category as manually reviewed.")
-        save = st.form_submit_button('Save changes')
+        save = st.form_submit_button('Save changes', type='primary')
     if save:
         try:
             updated = validate_expense(edited_day, edited_description, edited_amount, edited_category, today)
@@ -155,7 +188,7 @@ def csv_import(frame, path, trained, today):
     acknowledge = True
     if not errors.empty:
         acknowledge = st.checkbox('Import only the valid rows; discard the invalid rows')
-    if st.button('Import reviewed rows', disabled=not acknowledge):
+    if st.button('Import reviewed rows', disabled=not acknowledge, type='primary'):
         added, skipped = db.import_expenses(path, rows, skip)
         changed(f'Imported {added} expense(s); skipped {skipped} duplicate(s).')
     st.caption('To override an imported prediction, use Manage expenses after import.')
@@ -166,7 +199,7 @@ def insights_page(frame, path, today, mode):
     st.caption('Uses all records in the selected mode, independently of dashboard filters. These are calculations and statistical rules, not trained AI.')
     with st.form('budget'):
         budget = st.number_input('Monthly budget (INR; 0 disables)', value=db.get_budget(path), min_value=0.0, max_value=1_000_000_000.0, format='%.2f')
-        if st.form_submit_button('Save monthly budget'):
+        if st.form_submit_button('Save monthly budget', type='primary'):
             db.save_budget(path, budget)
             changed('Monthly budget saved.')
     result = spending_insights(frame, db.get_budget(path), today)
@@ -217,24 +250,26 @@ def insights_page(frame, path, today, mode):
 
 def main():
     st.set_page_config(page_title='Smart Expense Tracker', page_icon='💸', layout='wide')
-    st.title('Smart Expense Tracker with AI Insights')
-    st.caption('Track INR expenses · understand spending · explore simple machine learning')
+    apply_style()
+    sidebar_brand()
     mode = st.sidebar.radio('Data mode', ['Personal', 'Synthetic demo'])
     today = date.today()
+    hero(mode, today)
     path = str(DATA_HOME / ('demo.sqlite3' if mode == 'Synthetic demo' else 'personal.sqlite3'))
     db.init_db(path)
     if mode == 'Synthetic demo':
         st.warning('SYNTHETIC DEMO — generated transactions, separate from your personal database.')
         st.sidebar.caption('Load 30 complete synthetic months ending last month. Existing demo edits are preserved; duplicate records are skipped.')
-        if st.sidebar.button('Load synthetic demo data'):
+        if st.sidebar.button('Load synthetic demo data', type='primary', use_container_width=True):
             rows = generate_transactions(today).assign(category_source='synthetic').to_dict('records')
             added, skipped = db.import_expenses(path, rows)
             changed(f'Loaded {added} synthetic transactions; skipped {skipped} duplicates.')
     else:
         st.sidebar.caption('Personal expenses stay in a local SQLite database. No bank connection or external AI API.')
-    if st.sidebar.button('Refresh data'):
+    if st.sidebar.button('Refresh data', icon=':material/refresh:', use_container_width=True):
         load_expenses.clear()
         st.rerun()
+    st.sidebar.markdown('<div class="sidebar-note"><strong>Made for your everyday.</strong><br>INR expenses · Local storage<br>Your personal and demo data stay separate.</div>', unsafe_allow_html=True)
     if 'notice' in st.session_state:
         st.success(st.session_state.pop('notice'))
     training_path = ROOT / 'data' / 'category_training.csv'
@@ -259,6 +294,8 @@ def main():
             st.write(f"Stratified 75/25 split · seed 42 · {trained['train_size']} training / {trained['test_size']} test descriptions")
             st.dataframe(pd.DataFrame(trained['report']).T, use_container_width=True)
             st.caption('Normalized exact descriptions never overlap between training and test. TF-IDF is fitted only on the training partition. The deployed pipeline is the evaluated training-only model. Manual overrides are saved but do not automatically retrain it.')
+
+    st.markdown('<div class="footer">SMART EXPENSE TRACKER &nbsp; · &nbsp; Built with Python &nbsp; · &nbsp; Clarity in every transaction</div>', unsafe_allow_html=True)
 
 
 if __name__ == '__main__':

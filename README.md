@@ -35,6 +35,8 @@ A beginner-friendly Python application for recording INR expenses, visualizing s
 ```text
 smart-expense-tracker/
 ├── app.py                     # Streamlit interface
+├── ui.py                      # Theme, layout, and chart styling
+├── .streamlit/config.toml      # Light mint theme defaults
 ├── database.py                # SQLite CRUD and saved budget
 ├── data_processing.py         # Validation, CSV, filtering, metrics
 ├── ml_models.py               # Classifier and leakage-safe forecast
@@ -91,6 +93,10 @@ Run validation and reproduce the model measurements:
 python -m pytest -q
 python evaluate_models.py
 ```
+
+## Interface
+
+The UI uses a light mint theme, navy welcome panel, compact collapsible filters, spending cards, coordinated interactive charts, readable transaction columns, and a helpful empty state. Narrow screens use a stacked header. After pulling a theme update, stop and restart Streamlit so `.streamlit/config.toml` is reloaded.
 
 ## Try the application
 
