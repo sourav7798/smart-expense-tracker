@@ -169,12 +169,12 @@ def apply_style():
     </style>''', unsafe_allow_html=True)
 
 
-def hero(mode, today):
-    label = 'Synthetic demo' if mode == 'Synthetic demo' else 'Personal workspace'
+def hero(today):
+    label = 'Your expense tracker'
     st.markdown(f'''<div class="hero">
-        <div><div class="hero-eyebrow">SMART EXPENSE TRACKER · AI INSIGHTS</div>
+        <div><div class="hero-eyebrow">SMART EXPENSE TRACKER</div>
         <h1>A clearer picture of your spending.</h1>
-        <p>Your expenses, patterns and next steps. All in one place.</p></div>
+        <p>Record expenses. Understand your spending. Stay within your budget.</p></div>
         <div class="hero-status"><span class="status-pill">● &nbsp; {escape(label)}</span>
         <div class="hero-date">{today.strftime('%d %B %Y')}</div></div>
     </div>''', unsafe_allow_html=True)
@@ -200,4 +200,4 @@ def empty_state():
     st.markdown('''<div class="empty"><div class="empty-icon">₹</div>
         <h3>Your spending story starts here</h3>
         <p>Add your first expense or import a CSV to bring this dashboard to life.
-        Try Synthetic demo in the sidebar for a preview, or adjust your filters.</p></div>''', unsafe_allow_html=True)
+        Use Add expense or Import CSV in the sidebar to get started.</p></div>''', unsafe_allow_html=True)

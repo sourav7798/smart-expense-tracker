@@ -11,7 +11,6 @@ import database as db
 from ui import apply_style, hero, sidebar_brand, chart_style, empty_state, CATEGORY_COLORS
 from data_processing import (CATEGORIES, FIELDS, dashboard_metrics, duplicate_flags,
                              export_csv, filter_expenses, read_csv_preview, validate_expense)
-from generate_sample_data import generate_transactions
 from insights import spending_insights
 from ml_models import MIN_HISTORY, categorize, forecast_spending, train_categorizer
 
@@ -43,16 +42,24 @@ def money(value):
     return f'₹{value:,.2f}'
 
 
-def dashboard(frame, today, mode):
+def dashboard(frame, today):
     st.subheader('Your spending at a glance')
-    st.caption('A little visibility goes a long way. Explore where your money goes.')
+    st.caption('See your recorded spending. Add an expense whenever you pay for something.')
+    a, b, c = st.columns(3)
+    a.button('Add an expense', type='primary', on_click=navigate, args=('Add expense',), use_container_width=True)
+    b.button('Import a CSV', on_click=navigate, args=('Import CSV',), use_container_width=True)
+    c.button('Set a budget', on_click=navigate, args=('Budget & insights',), use_container_width=True)
+    if frame.empty:
+        empty_state()
+        st.info('Get started: 1. Add an expense or import a CSV. 2. Set your monthly budget. 3. Return here to see your spending.')
+        return
     start_default = frame['date'].min().date() if not frame.empty else today.replace(day=1)
     with st.expander('Filter by date & category', expanded=False):
         left, right = st.columns(2)
-        start = left.date_input('From', start_default, max_value=today, key=f'from_{mode}')
-        end = right.date_input('To', today, max_value=today, key=f'to_{mode}')
-        categories = st.multiselect('Categories', CATEGORIES, default=CATEGORIES, key=f'categories_{mode}')
-    search = st.text_input('Search descriptions', key=f'search_{mode}', placeholder='Search coffee, groceries, metro…')
+        start = left.date_input('From', start_default, max_value=today, key='overview_from')
+        end = right.date_input('To', today, max_value=today, key='overview_to')
+        categories = st.multiselect('Categories', CATEGORIES, default=CATEGORIES, key='overview_categories')
+    search = st.text_input('Search descriptions', key='overview_search', placeholder='Search coffee, groceries, metro…')
     if start > end:
         st.warning('From date must be on or before To date.')
         return
@@ -96,8 +103,8 @@ def dashboard(frame, today, mode):
                                 hovertemplate='%{x|%d %b %Y}<br>₹%{y:,.2f}<extra></extra>')
             st.plotly_chart(chart_style(chart, 240), use_container_width=True, config={'displayModeBar': False}, theme=None)
     st.subheader('Transaction history')
-    st.caption('Every entry, in one place. Edit or remove a record in Manage expenses.')
-    st.dataframe(filtered[['id'] + FIELDS + ['category_source']], hide_index=True, use_container_width=True,
+    st.caption('Your saved records. Open Transactions in the sidebar to edit or delete an expense.')
+    st.dataframe(filtered[['id'] + FIELDS], hide_index=True, use_container_width=True,
                  column_config={'id': st.column_config.NumberColumn('ID', format='%d'),
                                 'date': st.column_config.DateColumn('Date', format='DD MMM YYYY'),
                                 'description': st.column_config.TextColumn('Description', width='large'),
@@ -106,39 +113,70 @@ def dashboard(frame, today, mode):
     st.download_button('Export filtered CSV', export_csv(filtered), 'filtered_expenses.csv', 'text/csv', icon=':material/download:')
 
 
-def manage(frame, path, trained, today):
-    st.subheader('Add an expense')
-    description = st.text_input('Description', max_chars=300, key='new_description')
-    predicted, source = categorize(description, trained)
-    st.caption(f'Suggested category: {predicted} · source: {source}. Choose a manual category to override.')
-    with st.form('add_expense', clear_on_submit=True):
+def add_expense_page(path, trained, today):
+    st.subheader('Record an expense')
+    st.caption('Enter what you paid for, the date and amount. Everything is saved when you click Save expense.')
+    revision = st.session_state.get('expense_form_revision', 0)
+    with st.form(f'add_expense_{revision}'):
+        description = st.text_input('Description', max_chars=300, placeholder='For example: groceries or metro ticket')
         date_col, amount_col = st.columns(2)
         day = date_col.date_input('Expense date', today, max_value=today)
         amount = amount_col.number_input('Amount (INR)', min_value=0.0, max_value=1_000_000_000.0, step=10.0, format='%.2f')
-        choice = st.selectbox('Category', ['Use suggestion'] + CATEGORIES)
+        choice = st.selectbox('Category', ['Suggest automatically'] + CATEGORIES,
+                              help='Choose a category yourself, or let the app suggest one from your description.')
+        st.caption('Automatic categories can be wrong. Review or change them later in Transactions.')
         submitted = st.form_submit_button('Save expense', type='primary', use_container_width=True)
     if submitted:
         try:
-            category = predicted if choice == 'Use suggestion' else choice
-            row = validate_expense(day, description, amount, category, today)
-            row['category_source'] = source if choice == 'Use suggestion' else 'manual'
+            predicted, source = categorize(description, trained)
+            automatic = choice == 'Suggest automatically'
+            row = validate_expense(day, description, amount, predicted if automatic else choice, today)
+            row['category_source'] = source if automatic else 'manual'
             db.add_expense(path, row)
-            changed('Expense saved.')
+            st.session_state['expense_form_revision'] = revision + 1
+            changed(f"Expense saved: {money(row['amount'])} in {row['category']}. You can review it in Transactions.")
         except ValueError as exc:
             st.error(str(exc))
+    st.button('View saved transactions', on_click=navigate, args=('Transactions',))
+
+
+def transactions_page(frame, path, today):
+    st.subheader('Your transactions')
+    st.caption('Find a purchase, review its category, or correct a saved entry.')
+    if frame.empty:
+        st.info('No transactions yet. Add your first expense or import your existing records.')
+        st.button('Add your first expense', type='primary', on_click=navigate, args=('Add expense',))
+        return
+    search = st.text_input('Find a transaction', placeholder='Search a description')
+    a, b = st.columns(2)
+    start = a.date_input('Start date', frame['date'].min().date(), max_value=today)
+    end = b.date_input('End date', today, max_value=today)
+    categories = st.multiselect('Show categories', CATEGORIES, default=CATEGORIES)
+    if start > end:
+        st.warning('Start date must be on or before end date.')
+        return
+    frame = filter_expenses(frame, start, end, categories, search)
+    st.caption(f'{len(frame):,} matching transactions')
+    shown = frame[['id'] + FIELDS + ['category_source']].copy()
+    shown['category_source'] = shown['category_source'].map({'manual': 'Chosen by you', 'model': 'Suggested automatically', 'fallback': 'Needs review', 'synthetic': 'Synthetic (legacy)'})
+    st.dataframe(shown, hide_index=True, use_container_width=True,
+                 column_config={'amount': st.column_config.NumberColumn('Amount (₹)', format='₹ %.2f'),
+                                'date': st.column_config.DateColumn('Date', format='DD MMM YYYY'),
+                                'category_source': 'Category choice'})
+    st.download_button('Download these transactions', export_csv(frame), 'expenses.csv', 'text/csv')
     st.subheader('Edit or delete an expense')
     if frame.empty:
-        st.info('No saved expenses yet.')
+        st.info('No transactions match your filters. Try another date, category or search.')
         return
-    selected_id = st.selectbox('Select transaction ID', frame['id'].tolist(),
-                               format_func=lambda value: f"#{value} · {frame.loc[frame.id == value, 'description'].iloc[0]}")
+    selected_id = st.selectbox('Choose a transaction to edit', frame['id'].tolist(),
+                               format_func=lambda value: f"{frame.loc[frame.id == value, 'date'].iloc[0]:%d %b %Y} · {frame.loc[frame.id == value, 'description'].iloc[0]} · {money(frame.loc[frame.id == value, 'amount'].iloc[0])} · #{value}")
     row = frame.loc[frame.id == selected_id].iloc[0]
     with st.form(f'edit_{selected_id}'):
         edited_day = st.date_input('Edit date', row['date'].date(), max_value=today)
         edited_description = st.text_input('Edit description', row['description'], max_chars=300)
         edited_amount = st.number_input('Edit amount (INR)', value=float(row['amount']), min_value=0.0, max_value=1_000_000_000.0, format='%.2f')
         edited_category = st.selectbox('Edit category', CATEGORIES, index=CATEGORIES.index(row['category']))
-        st.caption(f"Current category source: {row['category_source']}. Saving an edit marks the category as manually reviewed.")
+        st.caption('Check the category before saving. Your selection replaces any automatic suggestion.')
         save = st.form_submit_button('Save changes', type='primary')
     if save:
         try:
@@ -155,10 +193,11 @@ def manage(frame, path, trained, today):
 
 
 def csv_import(frame, path, trained, today):
-    st.subheader('CSV import preview')
-    st.download_button('Download CSV template', 'date,description,amount,category\n2026-01-15,Metro ticket,60,Transport\n2026-01-16,Cafe coffee,120,\n',
+    st.subheader('Import your expenses')
+    st.write('1. Download the format template. 2. Fill it with your own expenses. 3. Upload and review before saving.')
+    st.download_button('Download CSV template', 'date,description,amount,category\n',
                        'expense_template.csv', 'text/csv')
-    st.caption('UTF-8 CSV · date: YYYY-MM-DD · INR amount: positive, up to two decimals · category optional. Blank categories receive a model suggestion (or Other fallback).')
+    st.caption('Use dates like YYYY-MM-DD and positive INR amounts like 120.50. Category is optional; automatic suggestions can be reviewed in Transactions.')
     upload = st.file_uploader('Upload expenses CSV', type=['csv'])
     if upload is None:
         return
@@ -191,12 +230,12 @@ def csv_import(frame, path, trained, today):
     if st.button('Import reviewed rows', disabled=not acknowledge, type='primary'):
         added, skipped = db.import_expenses(path, rows, skip)
         changed(f'Imported {added} expense(s); skipped {skipped} duplicate(s).')
-    st.caption('To override an imported prediction, use Manage expenses after import.')
+    st.caption('To override an imported prediction, open Transactions after import.')
 
 
-def insights_page(frame, path, today, mode):
-    st.subheader('Rule-based spending insights')
-    st.caption('Uses all records in the selected mode, independently of dashboard filters. These are calculations and statistical rules, not trained AI.')
+def insights_page(frame, path, today):
+    st.subheader('Your monthly budget')
+    st.caption('Set how much you want to spend each month. Budget calculations use all your saved expenses, regardless of dashboard filters.')
     with st.form('budget'):
         budget = st.number_input('Monthly budget (INR; 0 disables)', value=db.get_budget(path), min_value=0.0, max_value=1_000_000_000.0, format='%.2f')
         if st.form_submit_button('Save monthly budget', type='primary'):
@@ -218,84 +257,102 @@ def insights_page(frame, path, today, mode):
         st.write(f"Change: {result['change_percent']:+.1f}%")
     for suggestion in result['suggestions']:
         st.write('• ' + suggestion)
-    st.write('Unusually large transactions')
-    st.caption('With at least 8 records: amount > Q3 + 1.5 × IQR, where IQR = Q3 − Q1, across all recorded transactions. A flag is a review aid, not evidence of fraud; regular bills can be flagged.')
+    st.subheader('Expenses worth reviewing')
+    st.caption('These expenses are large compared with your other records. This is a statistical rule, not a fraud warning.')
+    with st.expander('How are these expenses selected?'):
+        st.write('With at least 8 records, amounts above Q3 + 1.5 × IQR are flagged. IQR is the difference between the 75th and 25th percentiles. Regular bills can be flagged too.')
     if result['threshold'] is None:
         st.info('At least 8 transactions are needed for the unusual-amount rule.')
     else:
         st.write(f"Threshold: {money(result['threshold'])}")
         st.dataframe(result['unusual'][FIELDS], hide_index=True)
     st.divider()
-    st.subheader('Machine learning: next month estimate')
+    st.subheader('Plan for next month')
     st.caption(f'Requires {MIN_HISTORY} complete months after discarding the first recorded month and the incomplete current month. Unrecorded intervening months are treated as zero spending.')
-    confirmed = st.checkbox('My history covers all spending from the first recorded month through last month', value=mode == 'Synthetic demo')
-    if not confirmed:
-        st.info('Confirm history coverage before interpreting a forecast. Missing imports are not zero spending.')
-        return
     forecast = forecast_spending(frame, today)
     if not forecast['available']:
-        st.info(f"Not enough historical data — {forecast['months']} usable complete months; {MIN_HISTORY} required.")
+        st.info(f"Not enough historical data — {forecast['months']} usable complete months; {MIN_HISTORY} required. Keep recording expenses or import your past history. No estimate is made up.")
+        return
+    confirmed = st.checkbox('My history covers all spending from the first recorded month through last month')
+    if not confirmed:
+        st.info('Confirm history coverage before interpreting a forecast. Missing imports are not zero spending.')
         return
     st.metric(f"Estimated spending · {forecast['target_month']}", money(forecast['prediction']))
     st.write(f"Last-complete-month baseline estimate: {money(forecast['baseline_prediction'])}")
     st.caption('The current month is incomplete: predict its total first, then recursively predict next month. Negative predictions are clipped to zero. Estimates can be inaccurate and are not spending limits.')
-    a, b = st.columns(2)
-    a.metric('Model MAE · held-out months', money(forecast['model_mae']))
-    b.metric('Baseline MAE · held-out months', money(forecast['baseline_mae']))
-    if forecast['model_mae'] >= forecast['baseline_mae']:
-        st.warning('The model did not beat the simple baseline in this evaluation. Consider the baseline as well.')
-    st.caption('Expanding chronological evaluation on the last 3 historical target months; two-step forecasts use only information known two months before each target. Baseline repeats the last observed month for both steps. MAE is average absolute error in INR, not a confidence interval.')
-    st.dataframe(forecast['evaluation'].round(2), hide_index=True)
+    with st.expander('How reliable is this estimate?'):
+        a, b = st.columns(2)
+        a.metric('Model MAE · held-out months', money(forecast['model_mae']))
+        b.metric('Baseline MAE · held-out months', money(forecast['baseline_mae']))
+        if forecast['model_mae'] >= forecast['baseline_mae']:
+            st.warning('The model did not beat the simple baseline in this evaluation. Consider the baseline as well.')
+        st.caption('Expanding chronological evaluation on the last 3 historical target months; two-step forecasts use only information known two months before each target. Baseline repeats the last observed month for both steps. MAE is average absolute error in INR, not a confidence interval.')
+        st.dataframe(forecast['evaluation'].round(2), hide_index=True)
+
+
+def navigate(page):
+    st.session_state['page'] = page
+
+
+def help_page(trained):
+    st.subheader('How to use your expense tracker')
+    st.write('**1. Record spending** — open Add expense, enter a description, date and amount, then save.')
+    st.write('**2. Review records** — open Transactions to search, edit, delete or download your expenses.')
+    st.write('**3. Bring existing records** — use Import CSV to preview and check your file before saving.')
+    st.write('**4. Set a limit** — open Budget & insights to save a monthly budget and track what remains.')
+    st.write('**5. See the picture** — Overview shows charts and totals from the expenses you have actually saved.')
+    with st.expander('Where is my data saved?'):
+        st.write('Your expenses are saved on this computer and remain after restarting the app. Each local installation has one expense book. There are no online accounts or shared-user access controls; use your own installation for separate private records.')
+        st.write('Existing saved expenses and budgets are preserved when you update. Export a CSV from Transactions to keep a portable copy of your expenses.')
+    with st.expander('Does it connect to my bank?'):
+        st.write('No. Enter expenses yourself or import a CSV in the required format. All totals, charts and budgets use those saved records. Nothing is auto-filled with sample transactions.')
+    with st.expander('How do automatic categories and forecasts work?'):
+        st.write('Category suggestions come from a machine-learning model trained on synthetic labeled descriptions. It can suggest categories for your actual expenses, but check its choices. Unknown descriptions use Other and are marked Needs review.')
+        st.write('Forecasts use your own monthly spending history and require at least 15 usable completed months. The first recorded month and current incomplete month are excluded. Budget alerts and spending comparisons are simple rules, not trained AI.')
+    with st.expander('Category model evaluation (technical details)'):
+        st.caption('Synthetic test scores do not establish accuracy on real transactions.')
+        if trained.get('model') is not None:
+            st.metric('Held-out synthetic accuracy', f"{trained['accuracy']:.1%}")
+            st.dataframe(pd.DataFrame(trained['report']).T, use_container_width=True)
+        else:
+            st.info('Automatic categorization is unavailable. You can still choose categories manually.')
 
 
 def main():
     st.set_page_config(page_title='Smart Expense Tracker', page_icon='💸', layout='wide')
     apply_style()
     sidebar_brand()
-    mode = st.sidebar.radio('Data mode', ['Personal', 'Synthetic demo'])
+    page = st.sidebar.radio('Go to', ['Overview', 'Add expense', 'Transactions', 'Import CSV', 'Budget & insights', 'Help'], key='page')
     today = date.today()
-    hero(mode, today)
-    path = str(DATA_HOME / ('demo.sqlite3' if mode == 'Synthetic demo' else 'personal.sqlite3'))
+    hero(today)
+    # Keep the existing filename so all previously saved personal expenses survive updates.
+    path = str(DATA_HOME / 'personal.sqlite3')
     db.init_db(path)
-    if mode == 'Synthetic demo':
-        st.warning('SYNTHETIC DEMO — generated transactions, separate from your personal database.')
-        st.sidebar.caption('Load 30 complete synthetic months ending last month. Existing demo edits are preserved; duplicate records are skipped.')
-        if st.sidebar.button('Load synthetic demo data', type='primary', use_container_width=True):
-            rows = generate_transactions(today).assign(category_source='synthetic').to_dict('records')
-            added, skipped = db.import_expenses(path, rows)
-            changed(f'Loaded {added} synthetic transactions; skipped {skipped} duplicates.')
-    else:
-        st.sidebar.caption('Personal expenses stay in a local SQLite database. No bank connection or external AI API.')
     if st.sidebar.button('Refresh data', icon=':material/refresh:', use_container_width=True):
         load_expenses.clear()
         st.rerun()
-    st.sidebar.markdown('<div class="sidebar-note"><strong>Made for your everyday.</strong><br>INR expenses · Local storage<br>Your personal and demo data stay separate.</div>', unsafe_allow_html=True)
+    st.sidebar.markdown('<div class="sidebar-note"><strong>Track your everyday spending.</strong><br>Add expenses · Review transactions<br>Plan your monthly budget</div>', unsafe_allow_html=True)
+    st.sidebar.caption('Saved on this computer · Amounts in INR')
     if 'notice' in st.session_state:
         st.success(st.session_state.pop('notice'))
     training_path = ROOT / 'data' / 'category_training.csv'
-    trained = load_categorizer(training_path.read_bytes()) if training_path.exists() else {'model': None, 'error': 'Synthetic training file is missing. Run python generate_sample_data.py.'}
-    if trained['model'] is None:
-        st.warning(trained['error'] + ' Manual categories remain available.')
+    trained = load_categorizer(training_path.read_bytes()) if training_path.exists() else {'model': None, 'error': 'Category suggestions are unavailable.'}
+    if trained['model'] is None and page in ['Add expense', 'Import CSV']:
+        st.warning('Automatic categorization is unavailable. Choose a category manually; blank imported categories will use Other.')
     frame = load_expenses(path)
-    tabs = st.tabs(['Dashboard', 'Manage expenses', 'CSV import', 'Insights & forecast', 'Model evaluation'])
-    with tabs[0]:
-        dashboard(frame, today, mode)
-    with tabs[1]:
-        manage(frame, path, trained, today)
-    with tabs[2]:
+    if page == 'Overview':
+        dashboard(frame, today)
+    elif page == 'Add expense':
+        add_expense_page(path, trained, today)
+    elif page == 'Transactions':
+        transactions_page(frame, path, today)
+    elif page == 'Import CSV':
         csv_import(frame, path, trained, today)
-    with tabs[3]:
-        insights_page(frame, path, today, mode)
-    with tabs[4]:
-        st.subheader('Synthetic category classifier evaluation')
-        st.warning('Training and testing use synthetic descriptions. Shared vocabulary and templates make this task easier than real bank descriptions. Scores do not establish real-world accuracy.')
-        if trained['model'] is not None:
-            st.metric('Held-out synthetic accuracy', f"{trained['accuracy']:.1%}")
-            st.write(f"Stratified 75/25 split · seed 42 · {trained['train_size']} training / {trained['test_size']} test descriptions")
-            st.dataframe(pd.DataFrame(trained['report']).T, use_container_width=True)
-            st.caption('Normalized exact descriptions never overlap between training and test. TF-IDF is fitted only on the training partition. The deployed pipeline is the evaluated training-only model. Manual overrides are saved but do not automatically retrain it.')
-
-    st.markdown('<div class="footer">SMART EXPENSE TRACKER &nbsp; · &nbsp; Built with Python &nbsp; · &nbsp; Clarity in every transaction</div>', unsafe_allow_html=True)
+    elif page == 'Budget & insights':
+        insights_page(frame, path, today)
+    else:
+        help_page(trained)
+    st.markdown('<div class="footer">SMART EXPENSE TRACKER &nbsp; · &nbsp; Track spending. Build better habits.</div>', unsafe_allow_html=True)
 
 
 if __name__ == '__main__':

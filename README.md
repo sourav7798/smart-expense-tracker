@@ -2,7 +2,7 @@
 
 A beginner-friendly Python application for recording INR expenses, visualizing spending, suggesting expense categories, and estimating next month's spending. Built with **Streamlit, Pandas, NumPy, scikit-learn, Plotly, and SQLite**. It runs locally; no paid API, external LLM, bank connection, React, Node.js, or separate backend is needed.
 
-**Honest scope:** this is a single-user learning/portfolio project. Category training data and all committed transactions are synthetic. Budget suggestions and unusual-amount flags are rules; only categorization and forecasting are machine learning. It does not connect to banks or provide continuous transaction ingestion.
+**Scope:** anyone can install this app locally and track their own actual expenses. Each installation has one expense book; there are no separate online accounts or access controls. Category training data and all committed transactions are synthetic. Budget suggestions and unusual-amount flags are rules; only categorization and forecasting are machine learning. It does not connect to banks or provide continuous transaction ingestion.
 
 ## Implemented features
 
@@ -14,7 +14,7 @@ A beginner-friendly Python application for recording INR expenses, visualizing s
 - TF-IDF + Logistic Regression category suggestions with manual overrides, category-source labels, and measured synthetic classification metrics.
 - Linear Regression next-month estimates with chronological two-step evaluation and a last-observed-month baseline.
 - Saved monthly budget, usage/overspending, matched-period comparison, largest category, IQR outlier flags, and data-grounded suggestions.
-- Isolated personal and synthetic demo databases. Generate 30 complete months of reproducible demo transactions.
+- Clear task-based navigation, first-use guidance, and a real expense book that starts empty. No demo mode or automatic sample transactions.
 - Graceful empty data, insufficient training data, unknown vocabulary, and insufficient forecast history handling.
 
 ## Stack and purpose
@@ -54,7 +54,7 @@ smart-expense-tracker/
     └── test_app.py
 ```
 
-The application creates `local_data/personal.sqlite3` and `local_data/demo.sqlite3` automatically. These are ignored by Git. `EXPENSE_TRACKER_DATA_DIR` optionally changes their location (also used for isolated tests).
+The application creates `local_data/personal.sqlite3` automatically. It is ignored by Git. Upgrades preserve your existing personal expenses and budget. The old demo database, if present, is left untouched and is never read or merged into your expenses. `EXPENSE_TRACKER_DATA_DIR` optionally changes their location (also used for isolated tests).
 
 ## Windows setup in VS Code
 
@@ -98,25 +98,30 @@ python evaluate_models.py
 
 Text uses strong dark foregrounds on light surfaces, larger labels/captions, and bright white header text for readability. The UI uses a light mint theme, navy welcome panel, compact collapsible filters, spending cards, coordinated interactive charts, readable transaction columns, and a helpful empty state. Cards have layered shadows and a subtle 3D tilt on hover, buttons lift and press, and the header has decorative depth. Hover motion is limited to mouse/trackpad devices and respects reduced-motion preferences; charts stay flat for readability. Narrow screens use a stacked header. After pulling a theme update, stop and restart Streamlit so `.streamlit/config.toml` is reloaded.
 
-## Try the application
+## Use the application
 
-1. Select **Synthetic demo** in the sidebar.
-2. Click **Load synthetic demo data**. The generator uses seed 42 and 30 complete months ending last month, relative to your machine's date. Repeated loads in the same month skip exact duplicates.
-3. Explore Dashboard charts and search. Go to Insights & forecast for the forecast and rules.
-4. Select **Personal** to enter your own expenses. Demo expenses never enter the personal database.
-5. In Manage expenses, type a description, review the suggestion, enter a positive amount, choose a category or use the suggestion, and save.
-6. To edit, select the transaction ID, change values, and save. Saving marks the category as manually reviewed. Deletion needs the checkbox confirmation.
-7. Set a monthly budget in Insights & forecast; 0 disables budgeting. The saved target applies to each calendar month, rather than maintaining a separate budget history.
+The app opens with an empty expense book on first use. It never inserts generated transactions.
 
-The dashboard refreshes after app changes without restarting the server. Reads are cached for up to 60 seconds, cleared immediately after writes, and can be cleared with **Refresh data**. External database changes may take up to the cache TTL to appear. The classifier cache is keyed by the training file contents.
+1. **Overview:** follow the first-use guidance or click Add an expense, Import a CSV, or Set a budget. Once you save records, this page shows actual spending metrics and charts.
+2. **Add expense:** enter what you paid for, the date, positive INR amount, and a category. Choose Suggest automatically if you want an automatic category. Save expense persists the record and confirms the amount/category. The form resets only after a successful save; invalid entries stay available for correction.
+3. **Transactions:** search or filter your saved purchases, download a CSV, and choose a dated transaction to edit. Delete only after the confirmation checkbox.
+4. **Import CSV:** download the header-only template, fill it with your own records, upload it, check the preview, and click Import reviewed rows. No example records are prefilled into your expense book.
+5. **Budget & insights:** save your monthly limit, see actual usage, compare spending, and review unusually large purchases. A zero budget disables budget alerts. The saved target applies each calendar month.
+6. **Help:** find short explanations of storage, CSV use, automatic categories, and forecast limitations. Technical model evaluation is tucked into an expandable section.
 
-The fixed committed expense sample covers **April 2024–September 2026**. Recreate the exact committed data with:
+There is no login or shared-user hosting in this version. Separate users should run their own local installation; browser tabs sharing one running server also share its expense book. No bank integration is implied: add transactions or import a CSV yourself.
+
+Reads are cached for up to 60 seconds, cleared immediately after writes, and can be cleared with Refresh data. The category-model cache is keyed by training file contents. Navigation renders only the selected page.
+
+### Development fixtures, not user expenses
+
+The committed expense sample covers April 2024–September 2026 and is used only by the offline evaluation script. The sample generator and synthetic classification training data remain for reproducible development and honest model evaluation. Neither is imported into the expense book by the application. Recreate the fixed developer fixtures with:
 
 ```bat
 python generate_sample_data.py --as-of 2026-10-01
 ```
 
-This generates the two synthetic CSVs only, never edits a database. To shift the files to another date, pass that date to `--as-of`; the live demo button already uses today's date. A reload in a later calendar month can add another synthetic history to existing demo data: for a fresh demo, stop the app and remove **only** `local_data/demo.sqlite3` before reloading. Do not delete the personal database.
+This writes the two synthetic CSV files, never a database. Automatic category suggestions are still trained on synthetic labeled descriptions; removing demo mode does not make that training data real.
 
 ## CSV format and validation
 
@@ -138,7 +143,7 @@ date,description,amount,category
 - Nothing is saved until **Import reviewed rows**. When errors exist, explicitly confirm importing only valid rows.
 - Exact transaction duplicates mean equal ISO date, trimmed case-sensitive description, and integer paise. Category/source are ignored so recategorization cannot hide duplicate purchases. Duplicate checks include existing data and earlier rows in the same file.
 - **Skip duplicates** defaults on; turn it off to deliberately keep repetitions. Import rechecks duplicates under a SQLite transaction.
-- Review predictions in the preview; override them afterward using Manage expenses. The table retains `manual`, `model`, `fallback`, or `synthetic` category source.
+- Review predictions in the preview; override them afterward using Transactions. SQLite retains category-source metadata; Transactions shows readable labels such as Chosen by you, Suggested automatically, and Needs review.
 - Export contains `date,description,amount,category` for the currently filtered and searched dashboard. Source metadata remains in SQLite. Free-text descriptions starting with spreadsheet formula characters are prefixed with an apostrophe for safer spreadsheet opening; those special descriptions will not round-trip byte-for-byte.
 
 ## How data moves
@@ -154,7 +159,7 @@ flowchart TD
     G --> H[Regression estimate and evaluation]
 ```
 
-Data is saved with parameterized SQL. After a write, the read cache is cleared and Streamlit reruns. The sidebar selects which database the entire app uses. Dashboard filters apply to dashboard metrics, charts, table, and export; insights and forecasts deliberately use all records in that mode.
+Data is saved with parameterized SQL. After a write, the read cache is cleared and Streamlit reruns. The sidebar selects the task page; all pages use the same local expense book. Dashboard filters apply to dashboard metrics, charts, table, and export; insights and forecasts deliberately use all saved records.
 
 Current-month dashboard spending is the current month **within the selected filters**. Daily average is filtered spending divided by every calendar day in the selected inclusive range, including days with no purchases. This is not average per active purchase day.
 
@@ -178,7 +183,7 @@ TF-IDF converts words/word pairs into numeric features; Logistic Regression lear
 ### Next-month forecast
 
 - Aggregate spending by calendar month. Always discard the first recorded month because its coverage may be incomplete; also discard the incomplete current month and future records.
-- Fill gaps in the intervening month sequence with zero **only under the assumption that the imported history is complete**. Personal mode asks you to confirm that coverage. An unimported month must not be interpreted as no spending.
+- Fill gaps in the intervening month sequence with zero **only under the assumption that the imported history is complete**. The forecast asks you to confirm that coverage. An unimported month must not be interpreted as no spending.
 - Require **15 usable complete months after exclusions**. Usually this requires records spanning at least 16 completed calendar months. Otherwise show **Not enough historical data**.
 - For target month `t`, use `spending[t-1]` and the mean of `spending[t-3:t]` (the previous three months). Implementation shifts by one before rolling; the target is never a feature.
 - Train a simple Linear Regression. Since the current month is incomplete, first predict its total, then recursively predict next month using that estimated current total. No partial current-month transaction is used.
@@ -234,9 +239,9 @@ Reproduce with `python evaluate_models.py`, which uses committed synthetic CSVs 
 
 The small measured improvement over baseline does not demonstrate reliable real-world forecasting. The estimate and errors above are synthetic demonstration results, not personal predictions.
 
-Tests cover invalid dates/amounts/fields, malformed CSV, duplicates within uploads and existing records, atomic imports, persistence, SQL-like descriptions, budget arithmetic, unequal month lengths, outlier thresholds, filters/metrics, target/future leakage, recursive horizon, incomplete-month exclusion, negative predictions, insufficient training/history, deduplicated classification splits, reproducible samples, and spreadsheet-safe export. Streamlit AppTest exercises add/edit/delete, saved budget alerts, database isolation, demo loading, chart/model execution, and a fresh session.
+Tests cover invalid dates/amounts/fields, malformed CSV, duplicates within uploads and existing records, atomic imports, persistence, SQL-like descriptions, budget arithmetic, unequal month lengths, outlier thresholds, filters/metrics, target/future leakage, recursive horizon, incomplete-month exclusion, negative predictions, insufficient training/history, deduplicated classification splits, reproducible samples, and spreadsheet-safe export. Streamlit AppTest exercises first-use navigation, add/edit/delete, form reset, saved budget alerts, preservation of existing expenses, ignoring a legacy demo database, search, CSV/help navigation, charts, history-confirmed forecasting, and a fresh session.
 
-**Verification completed:** `python -m pytest -q` passed **31 tests**; Python compilation and `git diff --check` passed. A real headless Streamlit server returned HTTP 200 for both `/_stcore/health` (`ok`) and `/`. UI interaction checks used Streamlit AppTest, not manual browser testing. Windows execution was not tested.
+**Verification completed:** `python -m pytest -q` passed **33 tests**; Python compilation and `git diff --check` passed. A real headless Streamlit server returned HTTP 200 for both `/_stcore/health` (`ok`) and `/`. UI interaction checks used Streamlit AppTest, not manual browser testing. The latest navigation changes were validated with AppTest; HTTP startup verification was performed on the earlier version. Windows execution was not tested.
 
 No large-dataset benchmark or performance improvement was measured; no such claim is made. Cached reads and vectorized Pandas operations are implementation choices, not proof of scalability.
 
@@ -245,14 +250,14 @@ No large-dataset benchmark or performance improvement was measured; no such clai
 - Local single-user app; no login, encryption at rest, bank sync, currency conversion, refunds, recurring-payment scheduler, or cloud backup.
 - Protect/back up your own local SQLite file. Public hosting would need authentication, separate user storage, and a security review.
 - Missing records affect totals and forecasting. The history-coverage checkbox is a user assertion, not an automatic proof.
-- Synthetic descriptions and transactions simplify both models. Manual categories are easy to review but are not online learning.
+- Synthetic training descriptions simplify classifier evaluation; offline forecast evaluation also uses synthetic fixtures. Live forecasts use only your saved expense history. Manual categories are easy to review but are not online learning.
 - No measured large-dataset support; the UI loads the local table into memory.
 - **`python`/`py` not found:** install Python 3.12, enable Add Python to PATH, restart VS Code; try `py -3.12 --version`.
 - **Module not found:** select `.venv\Scripts\python.exe` in VS Code and install dependencies through that same interpreter.
 - **`streamlit` not recognized:** use `python -m streamlit run app.py` inside the activated environment.
 - **PowerShell activation blocked:** use the explicit `.venv` interpreter commands above.
 - **Port busy:** `python -m streamlit run app.py --server.port 8502`.
-- **No expenses/charts:** add a record or select Synthetic demo and click its load button; clear restrictive filters and search.
+- **No expenses/charts:** use Add expense or Import CSV to save your own records; clear restrictive filters and search.
 - **Not enough historical data:** at least 15 usable complete months are required; adding many rows in one month does not satisfy that requirement.
 - **CSV errors:** use the template, UTF-8, exact ISO dates, numeric positive amounts, and supported category spelling. Fix errors or explicitly import only valid rows.
 - **Database locked:** close other copies of the app or tools writing to the same database and retry. Do not remove a database containing your data.
