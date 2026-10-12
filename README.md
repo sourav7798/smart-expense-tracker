@@ -96,7 +96,7 @@ python evaluate_models.py
 
 ## Interface
 
-The UI uses a light mint theme, navy welcome panel, compact collapsible filters, spending cards, coordinated interactive charts, readable transaction columns, and a helpful empty state. Narrow screens use a stacked header. After pulling a theme update, stop and restart Streamlit so `.streamlit/config.toml` is reloaded.
+The UI uses a light mint theme, navy welcome panel, compact collapsible filters, spending cards, coordinated interactive charts, readable transaction columns, and a helpful empty state. Cards have layered shadows and a subtle 3D tilt on hover, buttons lift and press, and the header has decorative depth. Hover motion is limited to mouse/trackpad devices and respects reduced-motion preferences; charts stay flat for readability. Narrow screens use a stacked header. After pulling a theme update, stop and restart Streamlit so `.streamlit/config.toml` is reloaded.
 
 ## Try the application
 

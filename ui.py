@@ -60,6 +60,65 @@ def apply_style():
     .empty p { color: #718297; font-size: 14px; max-width: 420px; margin: auto; line-height: 1.7; }
     .footer { color: #8795A5; font-size: 11px; border-top: 1px solid #E1E8EE;
         padding-top: 20px; margin-top: 28px; text-align: center; letter-spacing: .4px; }
+    /* Layered surfaces add depth without a 3D library or moving chart axes. */
+    .hero { position: relative; isolation: isolate; overflow: hidden;
+        border: 1px solid #2E5964;
+        box-shadow: 0 6px 0 #102A38, 0 18px 32px #17394D22, inset 0 1px 0 #FFFFFF20; }
+    .hero > div { position: relative; z-index: 1; }
+    .hero::before, .hero::after { content: ''; position: absolute; pointer-events: none;
+        z-index: 0; border-radius: 50%; }
+    .hero::before { width: 210px; height: 210px; right: 24%; top: -105px;
+        background: radial-gradient(circle at 30% 25%, #AEF0CF88, #348F8066 38%, #102D4300 72%);
+        box-shadow: inset -12px -16px 30px #0A233A33; }
+    .hero::after { width: 140px; height: 140px; right: 13%; bottom: -102px;
+        border: 20px solid #8BE3C51A; box-shadow: 0 0 0 16px #8BE3C508; }
+    .brand-mark, .empty-icon { box-shadow: 0 5px 0 #096457, 0 10px 18px #163B4820;
+        transform: perspective(600px) rotateY(-12deg) rotateX(5deg); }
+    [data-testid="stMetric"] { background: linear-gradient(135deg,#FFFFFF,#F7FCFA);
+        box-shadow: 0 4px 0 #DDE8E4, 0 10px 24px #1A3C4D0B, inset 0 1px 0 #FFFFFF;
+        transform-origin: center; }
+    [data-testid="stPlotlyChart"] { border-radius: 14px;
+        box-shadow: 0 4px 15px #17394D08; }
+    [data-testid="stForm"] { box-shadow: 0 5px 0 #E3EAEF, 0 12px 25px #18314B08; }
+    [data-testid="stButton"] button:not(:disabled),
+    [data-testid="stDownloadButton"] button:not(:disabled),
+    [data-testid="stFormSubmitButton"] button:not(:disabled) {
+        box-shadow: 0 3px 0 #CCDBD7, 0 5px 10px #17394D0A; }
+    button[kind="primary"]:not(:disabled) { box-shadow: 0 3px 0 #065B53, 0 7px 14px #087F7322; }
+    [data-testid="stButton"] button[kind="primary"]:hover,
+    [data-testid="stDownloadButton"] button[kind="primary"]:hover,
+    [data-testid="stFormSubmitButton"] button[kind="primary"]:hover { color: #FFFFFF; }
+    [data-testid="stButton"] button:focus-visible,
+    [data-testid="stDownloadButton"] button:focus-visible,
+    [data-testid="stFormSubmitButton"] button:focus-visible,
+    [role="tab"]:focus-visible { outline: 3px solid #087F73; outline-offset: 4px; }
+    @media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+        [data-testid="stMetric"], [data-testid="stPlotlyChart"], .brand-mark, .empty-icon,
+        [data-testid="stButton"] button, [data-testid="stDownloadButton"] button,
+        [data-testid="stFormSubmitButton"] button, [data-testid="stTabs"] [role="tab"] {
+            transition: transform 180ms ease-out, box-shadow 180ms ease-out,
+                        border-color 180ms ease-out, background-color 180ms ease-out; }
+        [data-testid="stMetric"]:hover {
+            transform: perspective(900px) translateY(-5px) rotateX(3deg) rotateY(-2deg);
+            border-color: #81C6B3;
+            box-shadow: 0 7px 0 #D4E5DF, 0 20px 30px #174D4220; }
+        [data-testid="stPlotlyChart"]:hover { box-shadow: 0 10px 26px #17394D17; }
+        .brand-mark:hover, .empty-icon:hover {
+            transform: perspective(600px) translateY(-3px) rotateY(10deg) rotateX(-4deg); }
+        [data-testid="stButton"] button:not(:disabled):hover,
+        [data-testid="stDownloadButton"] button:not(:disabled):hover,
+        [data-testid="stFormSubmitButton"] button:not(:disabled):hover {
+            transform: translateY(-2px); box-shadow: 0 5px 0 #C4D9D2, 0 10px 18px #087F731B; }
+        [data-testid="stButton"] button:not(:disabled):active,
+        [data-testid="stDownloadButton"] button:not(:disabled):active,
+        [data-testid="stFormSubmitButton"] button:not(:disabled):active {
+            transform: translateY(2px); box-shadow: 0 1px 0 #C4D9D2; }
+        [data-testid="stTabs"] [role="tab"]:hover {
+            transform: translateY(-2px); background: #E3F1EC; box-shadow: 0 4px 10px #174D4210; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .brand-mark, .empty-icon { transform: none; }
+    }
     @media (max-width: 760px) {
         .block-container { padding: 1.3rem 1rem 2rem; }
         .hero { padding: 24px; align-items: flex-start; flex-direction: column; border-radius: 16px; }
