@@ -15,34 +15,34 @@ def apply_style():
     [data-testid="stSidebar"] .block-container { padding-top: 1.5rem; }
     h1,h2,h3 { letter-spacing: -.035em; }
     h3 { font-size: 1.25rem !important; font-weight: 700 !important; }
-    [data-testid="stCaptionContainer"] { color: #62748A; }
+    [data-testid="stCaptionContainer"] { color: #334155; }
     .brand { display: flex; align-items: center; gap: 11px; margin: 8px 0 26px; }
     .brand-mark { display: grid; place-items: center; background: #087F73; color: white;
         width: 42px; height: 42px; border-radius: 13px; font-size: 24px; font-weight: 800; }
     .brand-name { color: #172B42; font-size: 19px; font-weight: 800; letter-spacing: -.6px; }
-    .brand-sub { color: #698094; font-size: 11px; letter-spacing: 1.3px; text-transform: uppercase; }
+    .brand-sub { color: #334155; font-size: 12px; font-weight: 600; letter-spacing: 1.3px; text-transform: uppercase; }
     .sidebar-note { background: #DFEAE8; border: 1px solid #CDDFDA; padding: 16px;
-        border-radius: 14px; font-size: 12px; color: #42615D; margin-top: 26px; line-height: 1.8; }
+        border-radius: 14px; font-size: 14px; color: #23483F; margin-top: 26px; line-height: 1.8; }
     .hero { background: linear-gradient(110deg,#132A3F 0%,#193F4B 75%,#16554F 100%);
         border-radius: 22px; padding: 30px 34px; display: flex; justify-content: space-between;
         align-items: center; gap: 20px; color: #fff; margin-bottom: 22px; }
     .hero-eyebrow { color: #94D9C8; font-size: 11px; letter-spacing: 2px; font-weight: 700; }
     .hero h1 { color: white; font-size: clamp(25px,3vw,38px); line-height: 1.2; margin: 10px 0;
         padding: 0; font-weight: 750; }
-    .hero p { color: #C1D5DE; font-size: 14px; margin: 0; line-height: 1.6; }
+    .hero p { color: #FFFFFF; font-size: 16px; margin: 0; line-height: 1.6; }
     .hero-status { flex-shrink: 0; text-align: right; }
     .status-pill { display: inline-block; border: 1px solid #57777B; border-radius: 30px;
-        color: #C8EEE2; padding: 7px 12px; font-size: 12px; background: #FFFFFF0A; }
-    .hero-date { color: #B1C9D0; font-size: 12px; margin-top: 12px; }
+        color: #FFFFFF; padding: 7px 12px; font-size: 14px; background: #FFFFFF0A; }
+    .hero-date { color: #F1F5F9; font-size: 14px; margin-top: 12px; }
     [data-testid="stTabs"] [role="tablist"] { gap: 7px; border-bottom: 1px solid #DFE6ED; padding-bottom: 10px; }
-    [data-testid="stTabs"] [role="tab"] { border-radius: 9px; padding: 9px 15px; height: 42px; color: #607289; }
+    [data-testid="stTabs"] [role="tab"] { border-radius: 9px; padding: 9px 15px; height: 42px; color: #27384D; }
     [data-testid="stTabs"] [role="tab"][aria-selected="true"] { background: #DDF0E9; color: #087364; }
-    [data-testid="stTabs"] [role="tab"] p { font-size: 13px; font-weight: 600; }
+    [data-testid="stTabs"] [role="tab"] p { font-size: 15px; font-weight: 600; }
     [data-testid="stTabs"] [role="tabpanel"] { padding-top: 22px; }
     [data-testid="stMetric"] { background: white; border: 1px solid #E1E8EF; border-radius: 16px;
         padding: 20px 20px 17px; box-shadow: 0 3px 14px #18314B04; min-height: 124px;
         border-top: 3px solid #9CD3C2; }
-    [data-testid="stMetricLabel"] { color: #62748A; font-size: 12px; }
+    [data-testid="stMetricLabel"] { color: #27384D; font-size: 15px; font-weight: 650; }
     [data-testid="stMetricValue"] { color: #172B42; font-size: clamp(21px,2.1vw,31px); font-weight: 750; }
     [data-testid="stVerticalBlockBorderWrapper"] > div { border-radius: 16px !important; }
     [data-testid="stForm"] { background: white; border: 1px solid #E0E7ED; border-radius: 16px; padding: 24px; }
@@ -57,9 +57,48 @@ def apply_style():
     .empty-icon { display: inline-block; border-radius: 16px; background: #E0F1EA; color: #087F73;
         padding: 12px 19px; font-size: 28px; margin-bottom: 12px; }
     .empty h3 { color: #233B50; margin: 0 0 8px; }
-    .empty p { color: #718297; font-size: 14px; max-width: 420px; margin: auto; line-height: 1.7; }
-    .footer { color: #8795A5; font-size: 11px; border-top: 1px solid #E1E8EE;
+    .empty p { color: #334155; font-size: 14px; max-width: 420px; margin: auto; line-height: 1.7; }
+    .footer { color: #475569; font-size: 13px; border-top: 1px solid #E1E8EE;
         padding-top: 20px; margin-top: 28px; text-align: center; letter-spacing: .4px; }
+    /* Explicit foregrounds prevent pale inherited text on our light surfaces. */
+    .stApp { color: #142438; color-scheme: light; }
+    [data-testid="stMarkdownContainer"] > p,
+    [data-testid="stMarkdownContainer"] > ul,
+    [data-testid="stMarkdownContainer"] > ol,
+    [data-testid="stText"], [data-testid="stHeading"] { color: #142438; }
+    [data-testid="stHeading"] h1, [data-testid="stHeading"] h2,
+    [data-testid="stHeading"] h3 { color: #142438; }
+    [data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] p,
+    [data-testid="stMetricLabel"] p,
+    [data-testid="stRadio"] label p, [data-testid="stCheckbox"] label p {
+        color: #203248 !important; font-size: 15px; font-weight: 600; opacity: 1; }
+    [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] p {
+        color: #334155 !important; font-size: 14px; line-height: 1.65; opacity: 1; }
+    [data-testid="stTextInput"] input, [data-testid="stNumberInput"] input,
+    [data-testid="stDateInput"] input {
+        color: #142438 !important; -webkit-text-fill-color: #142438;
+        background: #FFFFFF; font-size: 16px; caret-color: #087F73; }
+    input::placeholder, textarea::placeholder {
+        color: #475569 !important; -webkit-text-fill-color: #475569; opacity: 1; }
+    [data-baseweb="input"], [data-baseweb="base-input"],
+    [data-baseweb="select"] > div { background: #FFFFFF; color: #142438; border-color: #8598AC; }
+    [data-baseweb="select"] input { color: #142438 !important; -webkit-text-fill-color: #142438; }
+    [data-baseweb="select"] svg { fill: #334155; }
+    [data-baseweb="tag"] span { color: #125E52; font-weight: 600; }
+    [data-testid="stExpander"] summary, [data-testid="stExpander"] summary p {
+        color: #203248 !important; font-weight: 600; }
+    [data-testid="stTabs"] [role="tab"] p { color: inherit !important; }
+    [data-testid="stButton"] button:not(:disabled),
+    [data-testid="stDownloadButton"] button:not(:disabled),
+    [data-testid="stFormSubmitButton"] button:not(:disabled) {
+        background: #FFFFFF; color: #164E43; border-color: #7E9F98; }
+    [data-testid="stButton"] button[kind="primary"]:not(:disabled),
+    [data-testid="stDownloadButton"] button[kind="primary"]:not(:disabled),
+    [data-testid="stFormSubmitButton"] button[kind="primary"]:not(:disabled) {
+        background: #076C61; color: #FFFFFF; border-color: #076C61; }
+    [data-testid="stButton"] button p, [data-testid="stDownloadButton"] button p,
+    [data-testid="stFormSubmitButton"] button p { color: inherit !important; font-weight: 650; }
+    [data-testid="stAlert"] [data-testid="stMarkdownContainer"] > p { color: inherit; }
     /* Layered surfaces add depth without a 3D library or moving chart axes. */
     .hero { position: relative; isolation: isolate; overflow: hidden;
         border: 1px solid #2E5964;
@@ -148,7 +187,7 @@ def sidebar_brand():
 
 def chart_style(figure, height=320):
     figure.update_layout(template='plotly_white', height=height, paper_bgcolor='rgba(0,0,0,0)',
-                         plot_bgcolor='rgba(0,0,0,0)', font=dict(family='Arial, sans-serif', color='#61758A', size=12),
+                         plot_bgcolor='rgba(0,0,0,0)', font=dict(family='Arial, sans-serif', color='#27384D', size=14),
                          margin=dict(l=10,r=10,t=15,b=10), hoverlabel=dict(bgcolor='#172B42',font_color='white'),
                          colorway=PALETTE, legend_title_text='')
     if not any(trace.type == 'pie' for trace in figure.data):

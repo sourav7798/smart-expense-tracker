@@ -77,7 +77,7 @@ def dashboard(frame, today, mode):
             chart = px.bar(monthly, x='month', y='amount', color_discrete_sequence=['#087F73'])
             chart.update_traces(marker_cornerradius=5, hovertemplate='%{x|%b %Y}<br>₹%{y:,.2f}<extra></extra>')
             chart.update_xaxes(dtick='M3' if len(monthly) > 18 else 'M1', tickformat='%b %y')
-            st.plotly_chart(chart_style(chart), use_container_width=True, config={'displayModeBar': False})
+            st.plotly_chart(chart_style(chart), use_container_width=True, config={'displayModeBar': False}, theme=None)
         with b.container(border=True):
             st.subheader('Where it goes')
             st.caption('Category share · INR')
@@ -85,16 +85,16 @@ def dashboard(frame, today, mode):
                            color='category', color_discrete_map=CATEGORY_COLORS)
             chart.update_traces(textinfo='none', marker=dict(line=dict(color='#F5F7FA', width=3)),
                                 hovertemplate='%{label}<br>₹%{value:,.2f} · %{percent}<extra></extra>')
-            chart.update_layout(legend=dict(orientation='h', y=-.12, x=.5, xanchor='center', font_size=11),
-                                annotations=[dict(text='SPENDING', x=.5, y=.5, showarrow=False, font=dict(size=12,color='#63778A'))])
-            st.plotly_chart(chart_style(chart), use_container_width=True, config={'displayModeBar': False})
+            chart.update_layout(legend=dict(orientation='h', y=-.12, x=.5, xanchor='center', font_size=13),
+                                annotations=[dict(text='SPENDING', x=.5, y=.5, showarrow=False, font=dict(size=14,color='#27384D'))])
+            st.plotly_chart(chart_style(chart), use_container_width=True, config={'displayModeBar': False}, theme=None)
         with st.container(border=True):
             st.subheader('Daily rhythm')
             st.caption('See the peaks and quieter days in your spending.')
             chart = px.area(daily, x='date', y='amount', color_discrete_sequence=['#6F73D2'])
             chart.update_traces(line_width=2, fillcolor='rgba(111,115,210,0.12)',
                                 hovertemplate='%{x|%d %b %Y}<br>₹%{y:,.2f}<extra></extra>')
-            st.plotly_chart(chart_style(chart, 240), use_container_width=True, config={'displayModeBar': False})
+            st.plotly_chart(chart_style(chart, 240), use_container_width=True, config={'displayModeBar': False}, theme=None)
     st.subheader('Transaction history')
     st.caption('Every entry, in one place. Edit or remove a record in Manage expenses.')
     st.dataframe(filtered[['id'] + FIELDS + ['category_source']], hide_index=True, use_container_width=True,
